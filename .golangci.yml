@@ -1,0 +1,19 @@
+version: "2"
+
+linters:
+  default: all
+  disable:
+    - cyclop
+    - depguard
+    - exhaustruct
+    - funlen
+    - gocognit
+    - goconst
+    - gomodguard
+    - lll
+    - nlreturn
+    - noinlineerr
+    - varnamelen
+    - wrapcheck
+    - wsl
+    - wsl_v5
