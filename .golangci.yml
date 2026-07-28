@@ -17,3 +17,21 @@ linters:
     - wrapcheck
     - wsl
     - wsl_v5
+    - testpackage
+    - gochecknoglobals
+    - mnd
+    - godox
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          yaml: snake
+formatters:
+  enable:
+    - gofumpt
+    - goimports
