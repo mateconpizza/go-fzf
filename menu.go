@@ -4,38 +4,47 @@ package menu
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
-	"strings"
 )
 
 var (
-	ErrFzf                    = errors.New("fzf: error: code 2")
-	ErrFzfNoMatching          = errors.New("fzf: no matching record: code 1")
-	ErrFzfInvalidShellCommand = errors.New("fzf: invalid shell command for become action: code 126")
-	ErrFzfActionAborted       = errors.New("fzf: action aborted: code 130")
-	ErrFzfPermissionDenied    = errors.New("fzf: permission denied from become action: code 127")
+	// ErrFzf reports a generic fzf error (return code: 2).
+	ErrFzf = errors.New("error: code 2")
 
-	ErrFzfExitError   = errors.New("fzf: exit error")
-	ErrFzfInterrupted = errors.New("fzf: returned exit code 130")
-	ErrFzfNoItems     = errors.New("fzf: no items found")
-	ErrFzfReturnCode  = errors.New("fzf: returned a non-zero code")
+	// ErrNoMatching reports that no items matched the query (return code: 1).
+	ErrNoMatching = errors.New("no matching record: code 1")
+
+	// ErrInvalidShellCommand reports an invalid shell command for a become
+	// action (return code: 126).
+	ErrInvalidShellCommand = errors.New("invalid shell command for become action: code 126")
+
+	// ErrActionAborted reports that the user aborted the fzf session (return code:
+	// 130).
+	ErrActionAborted = errors.New("action aborted: code 130")
+
+	// ErrPermissionDenied reports a permission error from a become action
+	// (return code: 127).
+	ErrPermissionDenied = errors.New("permission denied from become action: code 127")
+
+	// ErrNoItems reports that no items were provided.
+	ErrNoItems = errors.New("no items found")
 )
 
 type Option func(*Options)
 
 type Options struct {
-	// header contains header lines displayed in the FZF interface.
-	// When customHeaderOnly is false, keymap descriptions are appended.
-	header []string
+	// useDefaults
+	useDefaults bool
 
-	// customHeaderOnly indicates whether to use only custom headers.
-	// When true, keymap descriptions are excluded from the header.
-	customHeaderOnly bool
+	// header contains header lines displayed in the FZF interface.
+	header            []string
+	headerSeparator   string
+	noHeader          bool
+	showKeybindHeader bool
 
 	// arg holds the command-line arguments passed to FZF.
 	// These are built from various options and configurations.
-	args *ArgsBuilder
+	argsBuilder *ArgsBuilder
 
 	// interruptFn handles FZF cancellation signals (Ctrl-C, ESC, etc.).
 	interruptFn func(error)
@@ -46,46 +55,28 @@ type Options struct {
 
 	// keymaps manages the keyboard shortcuts and their actions.
 	// Provides methods to register and manage keybindings.
-	keymaps *keyManager
+	keymaps *KeymapManager
 
-	// cfg contains the menu configuration and styling options.
-	// Provides defaults and behavioral settings for the menu.
-	cfg *Config
-
-	// previewCmd specifies the command for FZF's preview window.
-	// This command is executed for each item to generate preview content.
-	previewCmd string
-
-	// previewWindow specifies the FZF preview window configuration.
-	// Controls the preview layout, size, position, and other preview window
-	previewWindow string
-
-	// enable output color
-	withOutputColor bool
-
-	// multi enable multi-select with tab/shift-tab.
-	multi bool
-
-	// keymapFormatter formats a key binding and its description for display in
+	// headerKeymapFmt formats a key binding and its description for display in
 	// the menu header.
-	keymapFormatter KeymapFormatter
+	headerKeymapFmt KeymapFormatter
 
-	// separatorFormatter formats the separator used between
+	// headerSeparatorFmt formats the separator used between
 	// keymap entries in the menu header.
-	separatorFormatter SeparatorFormatter
+	headerSeparatorFmt SeparatorFormatter
 }
 
-type FmtFunc[T comparable] func(item *T) string
+type FmtFunc[T any] func(item T) string
 
 // Items holds the data and transformation logic for menu items.
-type Items[T comparable] struct {
+type Items[T any] struct {
 	// Formatter converts items to display strings for FZF.
 	// If nil, a default Formatter will be used that calls String() method.
 	// The function should return ANSI-formatted strings for rich display.
 	Formatter FmtFunc[T]
 }
 
-type Menu[T comparable] struct {
+type Menu[T any] struct {
 	Options
 	Items[T]
 }
@@ -106,7 +97,7 @@ func (m *Menu[T]) Select(items []T) ([]T, error) {
 	}
 
 	if len(selected) == 0 {
-		return nil, ErrFzfNoItems
+		return nil, ErrNoItems
 	}
 
 	return selected, nil
@@ -132,8 +123,82 @@ func (m *Menu[T]) SetFormatter(preprocessor FmtFunc[T]) {
 	m.Formatter = preprocessor
 }
 
-func (m *Menu[T]) UpdatePreview(s string) {
-	m.previewCmd = s
+func (m *Menu[T]) withDefaults() bool {
+	return m.useDefaults
+}
+
+// WithDefaults uses $FZF_DEFAULT_OPTS_FILE and $FZF_DEFAULT_OPTS.
+func WithDefaults(b bool) Option {
+	return func(o *Options) {
+		o.useDefaults = b
+	}
+}
+
+// WithAnsi enable processing of ANSI color codes.
+func WithAnsi() Option {
+	return func(o *Options) {
+		o.argsBuilder.WithAnsi()
+	}
+}
+
+// WithHeight sets the height of the menu.
+func WithHeight(s string) Option {
+	return func(o *Options) {
+		o.argsBuilder.WithHeight(s)
+	}
+}
+
+func WithInfo(is InfoStyle) Option {
+	return func(o *Options) {
+		o.argsBuilder.WithInfo(is)
+	}
+}
+
+func WithLayout(l Layout) Option {
+	return func(o *Options) {
+		o.argsBuilder.WithLayout(l)
+	}
+}
+
+// WithBorder sets border around the window.
+func WithBorder(b Border) Option {
+	return func(o *Options) {
+		o.argsBuilder.WithBorder(b)
+	}
+}
+
+func WithFooterBorder(b Border) Option {
+	return func(o *Options) {
+		o.argsBuilder.WithFooterBorder(b)
+	}
+}
+
+// WithSync synchronous search for multi-staged filtering.
+func WithSync() Option {
+	return func(o *Options) {
+		o.argsBuilder.WithSync()
+	}
+}
+
+// WithTac reverse the order of the input.
+func WithTac() Option {
+	return func(o *Options) {
+		o.argsBuilder.WithTac()
+	}
+}
+
+// WithNoScrollbar do not display scrollbar.
+func WithNoScrollbar() Option {
+	return func(o *Options) {
+		o.argsBuilder.WithNoScrollbar()
+	}
+}
+
+// WithCycle enable cyclic scroll.
+func WithCycle() Option {
+	return func(o *Options) {
+		o.argsBuilder.WithCycle()
+	}
 }
 
 // WithInterruptFn sets a callback that executes on fzf interruption.
@@ -144,31 +209,45 @@ func WithInterruptFn(fn func(error)) Option {
 	}
 }
 
-// WithArgs adds new args to Fzf.
-func WithArgs(args ...string) Option {
+// WithArgsCustom adds new args to Fzf.
+func WithArgsCustom(args ...string) Option {
 	return func(o *Options) {
-		o.args.add(args...)
+		o.argsBuilder.Add(args...)
 	}
 }
 
-func WithConfig(c *Config) Option {
+func WithArgs(fn func(b *ArgsBuilder) *ArgsBuilder) Option {
 	return func(o *Options) {
-		o.cfg = c
-		o.args.add(c.Arguments...)
+		o.argsBuilder.Add(fn(NewArgsBuilder()).Build()...)
+	}
+}
+
+// WithColor configures the color and text attributes for an fzf UI element.
+//
+// The target specifies the UI element to style (for example, "prompt",
+// "header", or "border"). The values specify one or more ANSI colors or text
+// attributes supported by fzf.
+func WithColor(target string, values ...ColorValue) Option {
+	return func(o *Options) {
+		args := make([]string, len(values))
+		for i, v := range values {
+			args[i] = string(v)
+		}
+		o.argsBuilder.WithColor(target, args...)
 	}
 }
 
 // WithKeybinds adds a keybind to Fzf.
 func WithKeybinds(keys ...*Keymap) Option {
 	return func(o *Options) {
-		o.keymaps.register(keys...)
+		o.keymaps.Register(keys...)
 	}
 }
 
 // WithMultiSelection adds a keybind to select multiple records.
 func WithMultiSelection() Option {
 	return func(o *Options) {
-		o.multi = true
+		o.argsBuilder.WithMultiSelection()
 	}
 }
 
@@ -179,17 +258,23 @@ func WithRunner(r MenuRunner) Option {
 	}
 }
 
-// WithPreview adds preview with a custom command.
-func WithPreview(cmd string) Option {
+// func WithPreview(b bool) Option {
+// 	return func(o *Options) {
+// 		o.preview = b
+// 	}
+// }
+
+// WithPreviewCmd adds preview with a custom command.
+func WithPreviewCmd(cmd string) Option {
 	return func(o *Options) {
-		o.previewCmd = cmd
+		o.argsBuilder.WithPreview(cmd)
 	}
 }
 
 // WithPreviewWindow determines the layout of the preview window.
 func WithPreviewWindow(args string) Option {
 	return func(o *Options) {
-		o.previewWindow = o.args.previewWindow + "=" + args
+		o.argsBuilder.WithPreviewWindow(args)
 	}
 }
 
@@ -197,7 +282,7 @@ func WithPreviewWindow(args string) Option {
 // in Fzf.
 func WithMultilineView() Option {
 	return func(o *Options) {
-		o.args.add(o.args.highlightLine, o.args.read0)
+		o.argsBuilder.Add(o.argsBuilder.highlightLine, o.argsBuilder.read0)
 	}
 }
 
@@ -208,39 +293,37 @@ func WithHeader(header string) Option {
 	}
 }
 
-// WithHeaderOnly sets a single header, replacing all existing ones.
-func WithHeaderOnly(header string) Option {
+func WithoutHeader(b bool) Option {
 	return func(o *Options) {
-		o.header = []string{header}
-		o.customHeaderOnly = true
+		o.noHeader = b
 	}
 }
 
 // WithHeaderFirst print header before the prompt line.
 func WithHeaderFirst() Option {
 	return func(o *Options) {
-		o.args.add(o.args.headerFirst)
+		o.argsBuilder.Add(o.argsBuilder.headerFirst)
 	}
 }
 
 // WithHeaderBorder draw border around the header section.
 func WithHeaderBorder(b Border) Option {
 	return func(o *Options) {
-		o.args.add(b.Arg(o.args.headerBorder))
+		o.argsBuilder.WithHeaderBorder(b)
 	}
 }
 
 // WithHeaderLabel label to print on the header border.
 func WithHeaderLabel(s string) Option {
 	return func(o *Options) {
-		o.args.add(o.args.headerLabel + "=" + s)
+		o.argsBuilder.Add(o.argsBuilder.headerLabel + "=" + s)
 	}
 }
 
 // WithPreviewBorder draws a single separator line.
 func WithPreviewBorder(b Border) Option {
 	return func(o *Options) {
-		o.args.add(b.Arg(o.args.previewBorder))
+		o.argsBuilder.WithPreviewBorder(b)
 	}
 }
 
@@ -248,84 +331,86 @@ func WithPreviewBorder(b Border) Option {
 // expressions.
 func WithNth(idx ...string) Option {
 	return func(o *Options) {
-		o.args.add(o.args.withNth, strings.Join(idx, ","))
+		o.argsBuilder.WithNth(idx...)
 	}
 }
 
 func WithFooter(footer string) Option {
 	return func(o *Options) {
-		o.args.add(o.args.footer + "=" + footer)
+		o.argsBuilder.WithFooter(footer)
 	}
 }
 
 // WithPrompt adds a prompt to Fzf.
 func WithPrompt(s string) Option {
 	return func(o *Options) {
-		o.args.withPrompt(s)
+		o.argsBuilder.WithPrompt(s)
 	}
 }
 
 func WithOutputColor(b bool) Option {
 	return func(o *Options) {
-		o.withOutputColor = b
+		if !b {
+			o.argsBuilder.WithNoColor()
+		}
+	}
+}
+
+func WithNoOutputColor() Option {
+	return func(o *Options) {
+		o.argsBuilder.WithNoColor()
 	}
 }
 
 func WithBorderLabel(s string) Option {
 	return func(o *Options) {
-		o.args.withBorderLabel(s)
+		o.argsBuilder.WithBorderLabel(s)
 	}
 }
 
 func WithPointer(s string) Option {
 	return func(o *Options) {
-		o.args.withPointer(s)
+		o.argsBuilder.WithPointer(s)
 	}
 }
 
-func WithKeymapFormatter(fn KeymapFormatter) Option {
+func WithHeaderKeymaps() Option {
 	return func(o *Options) {
-		o.keymapFormatter = fn
+		o.showKeybindHeader = true
 	}
 }
 
-func WithSeparatorFormatter(fn SeparatorFormatter) Option {
+func WithHeaderKeymapFmt(fn KeymapFormatter) Option {
 	return func(o *Options) {
-		o.separatorFormatter = fn
+		o.headerKeymapFmt = fn
 	}
 }
 
-// PreviewCmd builds an fzf preview command.
-func PreviewCmd(command, dbName string, args ...string) string {
-	// FIX: Use `--color=always` for fzf previews.
-	// This will `force` the preview window in FZF to `always` display colors, but if
-	// color is disable, FZF will handle the color strip but keeps text styles
-	// (dim, bold, italic, etc)
-	return fmt.Sprintf(
-		"%s --preview frame --color always --db %s %s",
-		command,
-		dbName,
-		strings.Join(args, " "),
-	)
+func WithHeaderSeparator(sep string) Option {
+	return func(o *Options) {
+		o.headerSeparator = sep
+	}
+}
+
+func WithHeaderSeparatorFmt(fn SeparatorFormatter) Option {
+	return func(o *Options) {
+		o.headerSeparatorFmt = fn
+	}
 }
 
 // New returns a new Menu.
-func New[T comparable](opts ...Option) *Menu[T] {
+func New[T any](opts ...Option) *Menu[T] {
 	o := Options{
 		header:             make([]string, 0),
 		runner:             &defaultRunner{},
-		keymaps:            newKeyManager(),
-		args:               newArgsBuilder(),
-		keymapFormatter:    defaultKeymapFormatter,
-		separatorFormatter: defaultSeparatorFormatter,
+		keymaps:            NewKeymapManager(),
+		argsBuilder:        NewArgsBuilder(),
+		headerKeymapFmt:    defaultKeymapFormatter,
+		headerSeparatorFmt: defaultSeparatorFormatter,
 	}
 
 	for _, fn := range opts {
 		fn(&o)
-	}
-
-	if o.cfg == nil {
-		o.cfg = NewDefaultConfig()
 	}
 
 	return &Menu[T]{
@@ -334,26 +419,18 @@ func New[T comparable](opts ...Option) *Menu[T] {
 }
 
 func (m Menu[T]) Validate() error {
-	if err := m.cfg.Keymaps().Validate(); err != nil {
-		return err
+	return m.argsBuilder.Validate()
+}
+
+// Select displays the given items in an interactive menu and returns the
+// selected items.
+func Select[T any](items []T, opts ...Option) ([]T, error) {
+	m := New[T](opts...)
+
+	items, err := m.Select(items)
+	if err != nil {
+		return nil, err
 	}
 
-	// set default prompt
-	if m.cfg.Prompt == "" {
-		slog.Warn("empty prompt, loading default prompt")
-		m.cfg.Prompt = defaultPrompt
-	}
-
-	// set default header separator
-	if m.cfg.Header.Sep == "" {
-		slog.Warn("empty header separator, loading default header separator")
-		m.cfg.Header.Sep = defaultHeaderSep
-	}
-
-	// set default settings
-	if len(m.cfg.Arguments) == 0 {
-		slog.Debug("empty settings, loading default settings")
-	}
-
-	return m.args.Validate()
+	return items, err
 }

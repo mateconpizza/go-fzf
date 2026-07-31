@@ -5,12 +5,19 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	shellwords "github.com/junegunn/go-shellwords"
 )
 
 var ErrArgEmpty = errors.New("argument cannot be empty")
 
 // Args holds the FZF arguments.
 type Args []string
+
+func (a Args) Validate() error {
+	_, err := shellwords.Parse(strings.Join(a, " "))
+	return err
+}
 
 // ArgsBuilder constructs command-line arguments for FZF.
 type ArgsBuilder struct {
@@ -21,6 +28,7 @@ type ArgsBuilder struct {
 	borderLabel   string // Label to print on the horizontal border line
 	color         string // Color configuration
 	footer        string // The given string will be printed as the sticky footer
+	footerBorder  string // Border around the footer window
 	header        string // The given string will be printed as the sticky header
 	height        string // Set the height of the menu
 	highlightLine string // Highlight the whole current line (bold)
@@ -44,58 +52,7 @@ type ArgsBuilder struct {
 	withNth       string // Transform the presentation of each line using the field index expressions
 }
 
-// Validate checks that all string fields in ArgsBuilder are not empty.
-func (a *ArgsBuilder) Validate() error {
-	v := reflect.ValueOf(*a)
-	t := reflect.TypeFor[ArgsBuilder]()
-
-	for i := range v.NumField() {
-		field := v.Field(i)
-		fieldName := t.Field(i).Name
-
-		if field.Kind() == reflect.String {
-			if field.String() == "" {
-				return fmt.Errorf("%w: %q", ErrArgEmpty, fieldName)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (a *ArgsBuilder) add(s ...string) *ArgsBuilder {
-	a.list = append(a.list, s...)
-	return a
-}
-
-func (a *ArgsBuilder) build() Args                       { return a.list }
-func (a *ArgsBuilder) withAnsi() *ArgsBuilder            { return a.add(a.ansi) }
-func (a *ArgsBuilder) withHeight(s string) *ArgsBuilder  { return a.add(a.height + "=" + s) }
-func (a *ArgsBuilder) withInfo(s string) *ArgsBuilder    { return a.add(a.info + "=" + s) }
-func (a *ArgsBuilder) withLayout(s string) *ArgsBuilder  { return a.add(a.layout + "=" + s) }
-func (a *ArgsBuilder) withNoColor() *ArgsBuilder         { return a.add(a.noColor) }
-func (a *ArgsBuilder) withNoScrollbar() *ArgsBuilder     { return a.add(a.noScrollbar) }
-func (a *ArgsBuilder) withPointer(s string) *ArgsBuilder { return a.add(a.pointer + "=" + s) }
-func (a *ArgsBuilder) withPreview(s string) *ArgsBuilder { return a.add(a.preview + "=" + s) }
-func (a *ArgsBuilder) withPrompt(s string) *ArgsBuilder  { return a.add(a.prompt + "=" + s) }
-func (a *ArgsBuilder) withSync() *ArgsBuilder            { return a.add(a.sync) }
-func (a *ArgsBuilder) withTac() *ArgsBuilder             { return a.add(a.tac) }
-func (a *ArgsBuilder) withCycle() *ArgsBuilder           { return a.add(a.cycle) }
-func (a *ArgsBuilder) withBorderLabel(s string) *ArgsBuilder {
-	return a.add(a.border, a.borderLabel+"="+s)
-}
-
-func (a *ArgsBuilder) withColor(target string, styles ...string) *ArgsBuilder {
-	// TODO: expose this as `Menu Option`
-	color := a.color + "=" + target
-	if len(styles) > 0 {
-		color += ":" + strings.Join(styles, ":")
-	}
-
-	return a.add(color)
-}
-
-func newArgsBuilder() *ArgsBuilder {
+func NewArgsBuilder() *ArgsBuilder {
 	return &ArgsBuilder{
 		ansi:          "--ansi",
 		bind:          "--bind",
@@ -103,6 +60,7 @@ func newArgsBuilder() *ArgsBuilder {
 		borderLabel:   "--border-label",
 		color:         "--color",
 		footer:        "--footer",
+		footerBorder:  "--footer-border",
 		header:        "--header",
 		height:        "--height",
 		highlightLine: "--highlight-line",
@@ -125,4 +83,97 @@ func newArgsBuilder() *ArgsBuilder {
 		headerBorder:  "--header-border",
 		withNth:       "--with-nth",
 	}
+}
+
+// Validate checks that all string fields in ArgsBuilder are not empty.
+func (a *ArgsBuilder) Validate() error {
+	if err := a.list.Validate(); err != nil {
+		return err
+	}
+
+	v := reflect.ValueOf(*a)
+	t := reflect.TypeFor[ArgsBuilder]()
+
+	for i := range v.NumField() {
+		field := v.Field(i)
+		fieldName := t.Field(i).Name
+
+		if field.Kind() == reflect.String {
+			if field.String() == "" {
+				return fmt.Errorf("%w: %q", ErrArgEmpty, fieldName)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (a *ArgsBuilder) Build() Args { return a.list }
+
+func (a *ArgsBuilder) Parse() error {
+	_, err := shellwords.Parse(strings.Join(a.list, " "))
+	return err
+}
+
+func (a *ArgsBuilder) String() string {
+	return strings.Join(a.list, " ")
+}
+
+func (a *ArgsBuilder) Add(s ...string) *ArgsBuilder {
+	a.list = append(a.list, s...)
+	return a
+}
+
+func (a *ArgsBuilder) Custom(s ...string) *ArgsBuilder {
+	return a.Add(s...)
+}
+
+func (a *ArgsBuilder) WithAnsi() *ArgsBuilder                { return a.Add(a.ansi) }
+func (a *ArgsBuilder) WithHeight(s string) *ArgsBuilder      { return a.Add(a.height + "=" + s) }
+func (a *ArgsBuilder) WithInfo(is InfoStyle) *ArgsBuilder    { return a.Add(a.info + "=" + string(is)) }
+func (a *ArgsBuilder) WithLayout(l Layout) *ArgsBuilder      { return a.Add(a.layout + "=" + string(l)) }
+func (a *ArgsBuilder) WithNoColor() *ArgsBuilder             { return a.Add(a.noColor) }
+func (a *ArgsBuilder) WithNoScrollbar() *ArgsBuilder         { return a.Add(a.noScrollbar) }
+func (a *ArgsBuilder) WithPointer(s string) *ArgsBuilder     { return a.Add(a.pointer + "=" + s) }
+func (a *ArgsBuilder) WithMultiSelection() *ArgsBuilder      { return a.Add(a.multi) }
+func (a *ArgsBuilder) WithHighlightLine() *ArgsBuilder       { return a.Add(a.highlightLine) }
+func (a *ArgsBuilder) WithPrompt(s string) *ArgsBuilder      { return a.Add(a.prompt + "=" + s) }
+func (a *ArgsBuilder) WithSync() *ArgsBuilder                { return a.Add(a.sync) }
+func (a *ArgsBuilder) WithTac() *ArgsBuilder                 { return a.Add(a.tac) }
+func (a *ArgsBuilder) WithCycle() *ArgsBuilder               { return a.Add(a.cycle) }
+func (a *ArgsBuilder) WithBorder(b Border) *ArgsBuilder      { return a.Add(a.border + "=" + string(b)) }
+func (a *ArgsBuilder) WithFooter(footer string) *ArgsBuilder { return a.Add(a.footer + "=" + footer) }
+func (a *ArgsBuilder) WithNth(idx ...string) *ArgsBuilder {
+	return a.Add(a.withNth + "=" + strings.Join(idx, ","))
+}
+
+func (a *ArgsBuilder) WithFooterBorder(b Border) *ArgsBuilder {
+	return a.Add(a.footerBorder + "=" + string(b))
+}
+
+func (a *ArgsBuilder) WithHeader(s string) *ArgsBuilder { return a.Add(a.header + "=" + s) }
+func (a *ArgsBuilder) WithHeaderBorder(b Border) *ArgsBuilder {
+	return a.Add(a.headerBorder + "=" + string(b))
+}
+
+func (a *ArgsBuilder) WithPreview(s string) *ArgsBuilder { return a.Add(a.preview + "=" + s) }
+func (a *ArgsBuilder) WithPreviewWindow(s string) *ArgsBuilder {
+	return a.Add(a.previewWindow + "=" + s)
+}
+
+func (a *ArgsBuilder) WithPreviewBorder(b Border) *ArgsBuilder {
+	return a.Add(a.previewBorder + "=" + string(b))
+}
+
+func (a *ArgsBuilder) WithBorderLabel(s string) *ArgsBuilder {
+	return a.Add(a.border, a.borderLabel+"="+s)
+}
+
+func (a *ArgsBuilder) WithColor(target string, styles ...string) *ArgsBuilder {
+	color := a.color + "=" + target
+	if len(styles) > 0 {
+		color += ":" + strings.Join(styles, ":")
+	}
+
+	return a.Add(color)
 }

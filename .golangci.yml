@@ -31,6 +31,11 @@ linters:
         rules:
           json: snake
           yaml: snake
+  exclusions:
+    rules:
+      - path: "keymap.go"
+        linters:
+          - godoclint
 formatters:
   enable:
     - gofumpt

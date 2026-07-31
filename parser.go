@@ -20,32 +20,32 @@ const ExitSuccess = 0
 func handleFzfErr(retcode int) error {
 	switch retcode {
 	case 1:
-		return ErrFzfNoMatching
+		return ErrNoMatching
 	case 2:
 		return ErrFzf
 	case 126:
-		return ErrFzfInvalidShellCommand
+		return ErrInvalidShellCommand
 	case 127:
-		return ErrFzfPermissionDenied
+		return ErrPermissionDenied
 	case 130:
-		return ErrFzfActionAborted
+		return ErrActionAborted
 	}
 
 	return nil
 }
 
 // selectFromItems runs Fzf with the given items and returns the selected item/s.
-func selectFromItems[T comparable](m *Menu[T], items []T) ([]T, error) {
+func selectFromItems[T any](m *Menu[T], items []T) ([]T, error) {
 	if len(items) == 0 {
-		return nil, ErrFzfNoItems
+		return nil, ErrNoItems
 	}
 
 	if m.Formatter == nil {
-		slog.Warn("preprocessor is nil, defaulting to 'defaultPreprocessor'")
+		slog.Debug("preprocessor is nil, defaulting to 'defaultPreprocessor'")
 		m.Formatter = defaultPreprocessor
 	}
 
-	for i, arg := range m.args.list {
+	for i, arg := range m.argsBuilder.list {
 		slog.Debug("menu args", strconv.Itoa(i), arg)
 	}
 
@@ -54,7 +54,7 @@ func selectFromItems[T comparable](m *Menu[T], items []T) ([]T, error) {
 	itemMap := make(map[string]T, len(items))
 	for i, item := range items {
 		ti := item
-		formatted := m.Formatter(&ti)
+		formatted := m.Formatter(ti)
 		formattedItems[i] = formatted
 		itemMap[ansiCodeRemover(formatted)] = item
 	}
@@ -66,7 +66,7 @@ func selectFromItems[T comparable](m *Menu[T], items []T) ([]T, error) {
 	go processOutputPreprocessed(itemMap, outputChan, resultChan)
 
 	// Build Fzf.Options
-	options, err := m.runner.Parse(m.cfg.Defaults, m.args.build())
+	options, err := m.runner.Parse(m.withDefaults(), m.argsBuilder.Build())
 	if err != nil {
 		return nil, fmt.Errorf("fzf: %w", err)
 	}

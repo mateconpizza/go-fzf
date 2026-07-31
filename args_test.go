@@ -7,7 +7,7 @@ import (
 
 func TestNewArgsBuilder(t *testing.T) {
 	t.Parallel()
-	builder := newArgsBuilder()
+	builder := NewArgsBuilder()
 
 	if builder == nil {
 		t.Fatal("newArgsBuilder() returned nil")
@@ -58,10 +58,10 @@ func TestNewArgsBuilder(t *testing.T) {
 
 func TestArgsBuilder_Add(t *testing.T) {
 	t.Parallel()
-	builder := newArgsBuilder()
+	builder := NewArgsBuilder()
 
 	// Test adding single argument
-	result := builder.add("--test")
+	result := builder.Add("--test")
 	if result != builder {
 		t.Error("add() should return the same builder instance for chaining")
 	}
@@ -70,7 +70,7 @@ func TestArgsBuilder_Add(t *testing.T) {
 	}
 
 	// Test adding multiple arguments
-	builder.add("--arg1", "--arg2", "--arg3")
+	builder.Add("--arg1", "--arg2", "--arg3")
 	expected := Args{"--test", "--arg1", "--arg2", "--arg3"}
 	if len(builder.list) != len(expected) {
 		t.Fatalf("list length = %d, expected %d", len(builder.list), len(expected))
@@ -82,7 +82,7 @@ func TestArgsBuilder_Add(t *testing.T) {
 	}
 
 	// Test adding empty slice
-	builder.add()
+	builder.Add()
 	if len(builder.list) != len(expected) {
 		t.Errorf("add() with no args should not modify list, got %v", builder.list)
 	}
@@ -90,8 +90,8 @@ func TestArgsBuilder_Add(t *testing.T) {
 
 func TestArgsBuilder_WithNoColor(t *testing.T) {
 	t.Parallel()
-	builder := newArgsBuilder()
-	result := builder.withNoColor()
+	builder := NewArgsBuilder()
+	result := builder.WithNoColor()
 
 	if result != builder {
 		t.Error("withNoColor() should return the same builder instance")
@@ -108,8 +108,8 @@ func TestArgsBuilder_WithNoColor(t *testing.T) {
 
 func TestArgsBuilder_WithAnsi(t *testing.T) {
 	t.Parallel()
-	builder := newArgsBuilder()
-	result := builder.withAnsi()
+	builder := NewArgsBuilder()
+	result := builder.WithAnsi()
 
 	if result != builder {
 		t.Error("withAnsi() should return the same builder instance")
@@ -126,8 +126,8 @@ func TestArgsBuilder_WithAnsi(t *testing.T) {
 
 func TestArgsBuilder_WithTac(t *testing.T) {
 	t.Parallel()
-	builder := newArgsBuilder()
-	result := builder.withTac()
+	builder := NewArgsBuilder()
+	result := builder.WithTac()
 
 	if result != builder {
 		t.Error("withTac() should return the same builder instance")
@@ -144,8 +144,8 @@ func TestArgsBuilder_WithTac(t *testing.T) {
 
 func TestArgsBuilder_WithSync(t *testing.T) {
 	t.Parallel()
-	builder := newArgsBuilder()
-	result := builder.withSync()
+	builder := NewArgsBuilder()
+	result := builder.WithSync()
 
 	if result != builder {
 		t.Error("withSync() should return the same builder instance")
@@ -162,8 +162,8 @@ func TestArgsBuilder_WithSync(t *testing.T) {
 
 func TestArgsBuilder_WithNoScrollbar(t *testing.T) {
 	t.Parallel()
-	builder := newArgsBuilder()
-	result := builder.withNoScrollbar()
+	builder := NewArgsBuilder()
+	result := builder.WithNoScrollbar()
 
 	if result != builder {
 		t.Error("withNoScrollbar() should return the same builder instance")
@@ -182,7 +182,7 @@ func TestArgsBuilder_WithLayout(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		input    string
+		input    Layout
 		expected string
 	}{
 		{"reverse layout", "reverse", "--layout=reverse"},
@@ -194,8 +194,8 @@ func TestArgsBuilder_WithLayout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			builder := newArgsBuilder()
-			result := builder.withLayout(tt.input)
+			builder := NewArgsBuilder()
+			result := builder.WithLayout(tt.input)
 
 			if result != builder {
 				t.Error("withLayout() should return the same builder instance")
@@ -227,8 +227,8 @@ func TestArgsBuilder_WithPointer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			builder := newArgsBuilder()
-			result := builder.withPointer(tt.input)
+			builder := NewArgsBuilder()
+			result := builder.WithPointer(tt.input)
 
 			if result != builder {
 				t.Error("withPointer() should return the same builder instance")
@@ -260,8 +260,8 @@ func TestArgsBuilder_WithPreview(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			builder := newArgsBuilder()
-			result := builder.withPreview(tt.input)
+			builder := NewArgsBuilder()
+			result := builder.WithPreview(tt.input)
 
 			if result != builder {
 				t.Error("withPreview() should return the same builder instance")
@@ -293,8 +293,8 @@ func TestArgsBuilder_WithPrompt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			builder := newArgsBuilder()
-			result := builder.withPrompt(tt.input)
+			builder := NewArgsBuilder()
+			result := builder.WithPrompt(tt.input)
 
 			if result != builder {
 				t.Error("withPrompt() should return the same builder instance")
@@ -315,7 +315,7 @@ func TestArgsBuilder_WithInfo(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		input    string
+		input    InfoStyle
 		expected string
 	}{
 		{"inline-right", "inline-right", "--info=inline-right"},
@@ -327,8 +327,8 @@ func TestArgsBuilder_WithInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			builder := newArgsBuilder()
-			result := builder.withInfo(tt.input)
+			builder := NewArgsBuilder()
+			result := builder.WithInfo(tt.input)
 
 			if result != builder {
 				t.Error("withInfo() should return the same builder instance")
@@ -361,8 +361,8 @@ func TestArgsBuilder_WithHeight(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			builder := newArgsBuilder()
-			result := builder.withHeight(tt.input)
+			builder := NewArgsBuilder()
+			result := builder.WithHeight(tt.input)
 
 			if result != builder {
 				t.Error("withHeight() should return the same builder instance")
@@ -394,8 +394,8 @@ func TestArgsBuilder_WithBorderLabel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			builder := newArgsBuilder()
-			result := builder.withBorderLabel(tt.input)
+			builder := NewArgsBuilder()
+			result := builder.WithBorderLabel(tt.input)
 
 			if result != builder {
 				t.Error("withBorderLabel() should return the same builder instance")
@@ -416,10 +416,10 @@ func TestArgsBuilder_WithBorderLabel(t *testing.T) {
 
 func TestArgsBuilder_Build(t *testing.T) {
 	t.Parallel()
-	builder := newArgsBuilder()
-	builder.add("--test1", "--test2")
+	builder := NewArgsBuilder()
+	builder.Add("--test1", "--test2")
 
-	result := builder.build()
+	result := builder.Build()
 
 	if len(result) != 2 {
 		t.Fatalf("build() returned %d args, expected 2", len(result))
@@ -440,24 +440,24 @@ func TestArgsBuilder_Build(t *testing.T) {
 
 func TestArgsBuilder_Chaining(t *testing.T) {
 	t.Parallel()
-	builder := newArgsBuilder()
+	builder := NewArgsBuilder()
 
 	result := builder.
-		withNoColor().
-		withAnsi().
-		withTac().
-		withSync().
-		withNoScrollbar().
-		withLayout("reverse").
-		withPointer("→").
-		withPrompt("Select: ").
-		withPreview("cat {}").
-		withInfo("inline").
-		withHeight("50%").
-		withColor("prompt", "bold", "blue").
-		withColor("header", "italic", "green").
-		withBorderLabel("Files").
-		build()
+		WithNoColor().
+		WithAnsi().
+		WithTac().
+		WithSync().
+		WithNoScrollbar().
+		WithLayout("reverse").
+		WithPointer("→").
+		WithPrompt("Select: ").
+		WithPreview("cat {}").
+		WithInfo("inline").
+		WithHeight("50%").
+		WithColor("prompt", "bold", "blue").
+		WithColor("header", "italic", "green").
+		WithBorderLabel("Files").
+		Build()
 
 	expected := Args{
 		"--no-color",
@@ -498,7 +498,7 @@ func TestArgsBuilder_Validate(t *testing.T) {
 	}{
 		{
 			name:    "normal_all_populated_via_constructor",
-			builder: newArgsBuilder(),
+			builder: NewArgsBuilder(),
 			wantErr: nil,
 		},
 		{
@@ -509,7 +509,7 @@ func TestArgsBuilder_Validate(t *testing.T) {
 		{
 			name: "boundary_first_field_empty",
 			builder: func() *ArgsBuilder {
-				b := newArgsBuilder()
+				b := NewArgsBuilder()
 				b.ansi = ""
 				return b
 			}(),
@@ -518,7 +518,7 @@ func TestArgsBuilder_Validate(t *testing.T) {
 		{
 			name: "boundary_middle_field_empty",
 			builder: func() *ArgsBuilder {
-				b := newArgsBuilder()
+				b := NewArgsBuilder()
 				b.layout = ""
 				return b
 			}(),
@@ -527,7 +527,7 @@ func TestArgsBuilder_Validate(t *testing.T) {
 		{
 			name: "boundary_last_field_empty",
 			builder: func() *ArgsBuilder {
-				b := newArgsBuilder()
+				b := NewArgsBuilder()
 				b.withNth = ""
 				return b
 			}(),
@@ -536,7 +536,7 @@ func TestArgsBuilder_Validate(t *testing.T) {
 		{
 			name: "normal_whitespace_is_technically_not_empty",
 			builder: func() *ArgsBuilder {
-				b := newArgsBuilder()
+				b := NewArgsBuilder()
 				b.preview = " "
 				return b
 			}(),

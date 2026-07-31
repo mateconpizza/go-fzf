@@ -1,136 +1,301 @@
 package menu
 
 import (
-	"reflect"
+	"errors"
+	"slices"
+	"strings"
 	"testing"
 )
 
-func TestBuildHeaderStrings(t *testing.T) {
+func TestMenu_buildHeader(t *testing.T) {
 	t.Parallel()
 
-	t.Run("success with visible keybinds", func(t *testing.T) {
-		t.Parallel()
-		m := New[any]()
-		sep := " "
-		m.cfg.Header = Header{Sep: sep, Enabled: true}
-
-		keys := []*Keymap{
-			{Bind: "a", Action: "Add", Desc: "Add", Enabled: true},
-			{Bind: "x", Action: "Hidden", Desc: "Hidden", Enabled: true, Hidden: true},
-			{Bind: "d", Action: "Delete", Desc: "Delete", Enabled: true},
-		}
-		m.keymaps.register(keys...)
-
-		got := m.buildHeaderStrings()
-		want := []string{"a:Add" + sep + "d:Delete"}
-
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("want %v, got %v", want, got)
-		}
-	})
-
-	t.Run("uses custom header when provided", func(t *testing.T) {
-		t.Parallel()
-
-		want := []string{"custom header"}
-		m := New[any](
-			WithHeaderOnly(want[0]),
-			WithKeybinds([]*Keymap{
-				{Bind: "a", Desc: "Add", Enabled: true},
-				{Bind: "x", Desc: "Hidden", Enabled: true, Hidden: true},
-				{Bind: "d", Desc: "Delete", Enabled: true},
-			}...),
-		)
-
-		got := m.buildHeaderStrings()
-
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("want %v, got %v", want, got)
-		}
-	})
-}
-
-func TestBuildHeader_Integration(t *testing.T) {
-	t.Parallel()
-	m := New[any]()
-	m.cfg.Header = Header{Sep: " | ", Enabled: true}
-
-	keys := []*Keymap{
-		{Bind: "a", Action: "Add", Desc: "Add", Enabled: true},
-		{Bind: "d", Action: "Delete", Desc: "Delete", Enabled: true},
-	}
-
-	m.keymaps.register(keys[0])
-	m.keymaps.register(keys[1])
-
-	err := m.buildHeaderArgs()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	want := []string{"--header", "a:Add | d:Delete"}
-	got := m.args.build()
-
-	if len(got) != len(want) {
-		t.Fatalf("length mismatch: want %d, got %d", len(want), len(got))
-	}
-
-	for i := range want {
-		if want[i] != got[i] {
-			t.Fatalf("mismatch at index %d:\nwant: %q\ngot:  %q", i, want[i], got[i])
-		}
-	}
-}
-
-func TestBuildPreview(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
+	tests := []struct {
 		name       string
-		previewCmd string
-		previewKey *Keymap
-		wantArgs   int
-		wantError  bool
+		setup      func() *Menu[any]
+		want       string
+		wantErr    bool
+		wantErrMsg string
 	}{
 		{
-			name:       "generates args from template with valid keymap",
-			previewCmd: "echo {1}",
-			previewKey: &Keymap{Bind: KeyCtrlSlash, Enabled: true},
-			wantArgs:   2,
+			name: "normal_with_visible_keybinds",
+			setup: func() *Menu[any] {
+				return New[any](
+					WithHeaderKeymaps(),
+					WithHeaderSeparator(" - "),
+					WithKeybinds([]*Keymap{
+						{Bind: "a", Desc: "Add", Action: "add-action", Enabled: true},
+						{Bind: "x", Desc: "Hidden", Action: "hidden-action", Enabled: true, Hidden: true}, // Skipped (hidden)
+						{Bind: "d", Desc: "Disabled", Action: "disabled-action", Enabled: false},          // Skipped (disabled)
+						{Bind: "s", Desc: "Save", Action: "save-action", Enabled: true},
+					}...),
+				)
+			},
+			want: "a:Add - s:Save",
 		},
 		{
-			name:       "returns empty args for disabled preview keymap",
-			previewCmd: "",
-			previewKey: &Keymap{},
-			wantArgs:   0,
+			name: "no_header_flag_returns_early",
+			setup: func() *Menu[any] {
+				return New[any](
+					WithoutHeader(true),
+					WithHeaderKeymaps(),
+					WithKeybinds([]*Keymap{
+						{Bind: "a", Desc: "Add", Enabled: true},
+					}...),
+				)
+			},
+			want: "",
 		},
 		{
-			name:       "handles command without placeholders",
-			previewCmd: "echo preview",
-			previewKey: &Keymap{Bind: KeyCtrlSlash, Enabled: true},
-			wantArgs:   2,
+			name: "show_keybind_header_false_joins_existing_header",
+			setup: func() *Menu[any] {
+				return New[any](WithHeader("custom header"))
+			},
+			want: "custom header",
+		},
+		{
+			name: "empty_description_defaults_to_question_mark",
+			setup: func() *Menu[any] {
+				return New[any](
+					WithHeaderKeymaps(),
+					WithKeybinds([]*Keymap{
+						{Bind: "a", Desc: "", Action: "a-action", Enabled: true},
+					}...),
+				)
+			},
+			want: "a:?",
+		},
+		{
+			name: "all_keybinds_filtered_returns_empty",
+			setup: func() *Menu[any] {
+				return New[any](
+					WithHeaderKeymaps(),
+					WithKeybinds([]*Keymap{
+						{Bind: "h", Desc: "Hidden", Enabled: true, Hidden: true},
+						{Bind: "d", Desc: "Disabled", Enabled: false},
+					}...),
+				)
+			},
+			want: "",
+		},
+		{
+			name: "empty_keymaps_list_returns_empty",
+			setup: func() *Menu[any] {
+				return New[any](WithHeaderKeymaps())
+				// No keymaps registered
+			},
+			want: "",
+		},
+		{
+			name: "shellwords_parse_error_on_malformed_header",
+			setup: func() *Menu[any] {
+				return New[any](
+					WithHeaderKeymaps(),
+					WithKeybinds([]*Keymap{
+						{Bind: "e", Desc: "unmatched ' quote", Enabled: true},
+					}...),
+				)
+			},
+			want:       "",
+			wantErr:    true,
+			wantErrMsg: "invalid command line string",
+		},
+		{
+			name: "uses_custom_header_when_provided",
+			setup: func() *Menu[any] {
+				return New[any](
+					WithHeader("custom header"),
+					WithKeybinds([]*Keymap{
+						{Bind: "a", Desc: "Add", Enabled: true},
+						{Bind: "x", Desc: "Hidden", Enabled: true, Hidden: true},
+						{Bind: "d", Desc: "Delete", Enabled: true},
+					}...),
+				)
+			},
+			want: "custom header",
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			m := New[any](WithOutputColor(true), WithPreview(tc.previewCmd))
-			m.cfg.DefaultKeymaps.Preview = tc.previewKey
+			m := tt.setup()
+			got, err := m.buildHeader()
 
-			err := m.buildPreviewArgs()
-			if tc.wantError && err == nil {
-				t.Fatal("expected error, got nil")
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("buildHeader() expected error containing %q, got nil", tt.wantErrMsg)
+				}
+				if tt.wantErrMsg != "" && !strings.Contains(err.Error(), tt.wantErrMsg) {
+					t.Fatalf("buildHeader() expected error containing %q, got %v", tt.wantErrMsg, err)
+				}
+				return
 			}
-			if !tc.wantError && err != nil {
-				t.Fatalf("unexpected error: %v", err)
+
+			if err != nil {
+				t.Fatalf("buildHeader() unexpected error: %v", err)
 			}
 
-			args := m.args.build()
+			if got != tt.want {
+				t.Fatalf("buildHeader() = %q; want %q", got, tt.want)
+			}
+		})
+	}
+}
 
-			if got := len(args); got != tc.wantArgs {
-				t.Fatalf("want %d args, got %d, args: %v", tc.wantArgs, got, args)
+func TestMenu_buildKeybindString(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		keybinds []*Keymap
+		want     []string
+	}{
+		{
+			name:     "empty_no_keybinds",
+			keybinds: nil,
+			want:     nil,
+		},
+		{
+			name: "single_enabled",
+			keybinds: []*Keymap{
+				NewKeymap().WithBind(KeyCtrlE).WithExecute("echo {}"),
+			},
+			want: []string{"ctrl-e:execute(echo {})"},
+		},
+		{
+			name: "multiple_enabled",
+			keybinds: []*Keymap{
+				NewKeymap().WithBind(KeyCtrlE).WithExecute("echo {}"),
+				NewKeymap().WithBind(KeyCtrlA).WithExecute("cat {}"),
+			},
+			want: []string{
+				"ctrl-e:execute(echo {})",
+				"ctrl-a:execute(cat {})",
+			},
+		},
+		{
+			name: "disabled_keybind_excluded",
+			keybinds: []*Keymap{
+				NewKeymap().WithBind(KeyCtrlE).WithExecute("echo {}"),
+				NewKeymap().WithBind(KeyCtrlA).WithExecute("cat {}").WithEnabled(false),
+			},
+			want: []string{"ctrl-e:execute(echo {})"},
+		},
+		{
+			name: "missing_action_excluded",
+			keybinds: []*Keymap{
+				NewKeymap().WithBind(KeyCtrlE), // no WithExecute -> Action == ""
+				NewKeymap().WithBind(KeyCtrlA).WithExecute("cat {}"),
+			},
+			want: []string{"ctrl-a:execute(cat {})"},
+		},
+		{
+			name: "all_disabled_yields_empty",
+			keybinds: []*Keymap{
+				NewKeymap().WithBind(KeyCtrlE).WithExecute("echo {}").WithEnabled(false),
+				NewKeymap().WithBind(KeyCtrlA).WithExecute("cat {}").WithEnabled(false),
+			},
+			want: nil,
+		},
+		{
+			name: "all_missing_action_yields_empty",
+			keybinds: []*Keymap{
+				NewKeymap().WithBind(KeyCtrlE),
+				NewKeymap().WithBind(KeyCtrlA),
+			},
+			want: nil,
+		},
+		{
+			name: "action_with_special_chars",
+			keybinds: []*Keymap{
+				NewKeymap().WithBind(KeyCtrlR).WithExecute(`reload(find . -name "*.go")`),
+			},
+			want: []string{`ctrl-r:execute(reload(find . -name "*.go"))`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := New[any](WithKeybinds(tt.keybinds...))
+			got := m.buildKeybindString()
+
+			if tt.want == nil {
+				if got != "" {
+					t.Fatalf("buildKeybindString() = %q; want empty", got)
+				}
+				return
+			}
+
+			gotParts := strings.Split(got, ",")
+			slices.Sort(gotParts)
+			wantParts := slices.Clone(tt.want)
+			slices.Sort(wantParts)
+
+			if !slices.Equal(gotParts, wantParts) {
+				t.Fatalf("buildKeybindString() = %q; want (any order) %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMenu_buildKeybindArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		keybinds []*Keymap
+		wantArgs bool // whether argsBuilder should have a --bind= entry
+		wantErr  error
+	}{
+		{
+			name:     "no_keybinds_noop",
+			keybinds: nil,
+			wantArgs: false,
+			wantErr:  nil,
+		},
+		{
+			name: "single_keybind_appends_arg",
+			keybinds: []*Keymap{
+				NewKeymap().WithBind(KeyCtrlE).WithExecute("echo {}"),
+			},
+			wantArgs: true,
+			wantErr:  nil,
+		},
+		{
+			name: "all_disabled_noop",
+			keybinds: []*Keymap{
+				NewKeymap().WithBind(KeyCtrlE).WithExecute("echo {}").WithEnabled(false),
+			},
+			wantArgs: false,
+			wantErr:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := New[any](WithKeybinds(tt.keybinds...))
+			err := m.buildKeybindArgs()
+
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("buildKeybindArgs() error = %v; want %v", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("buildKeybindArgs() unexpected error: %v", err)
+			}
+
+			got := m.argsBuilder.String()
+			hasBind := strings.Contains(got, "--bind=")
+			if hasBind != tt.wantArgs {
+				t.Fatalf("argsBuilder.String() = %q; wantArgs=%v", got, tt.wantArgs)
 			}
 		})
 	}

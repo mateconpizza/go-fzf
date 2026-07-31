@@ -52,7 +52,7 @@ func TestSelectReturnsSelectedItem(t *testing.T) {
 			output:   "",
 			expected: nil,
 			recode:   1,
-			err:      ErrFzfNoItems,
+			err:      ErrNoItems,
 		},
 		{
 			name:     "no match",
@@ -60,7 +60,7 @@ func TestSelectReturnsSelectedItem(t *testing.T) {
 			output:   "",
 			expected: nil,
 			recode:   1,
-			err:      ErrFzfNoMatching,
+			err:      ErrNoMatching,
 		},
 		{
 			name:     "action aborted",
@@ -68,7 +68,7 @@ func TestSelectReturnsSelectedItem(t *testing.T) {
 			output:   "",
 			expected: nil,
 			recode:   130,
-			err:      ErrFzfActionAborted,
+			err:      ErrActionAborted,
 		},
 	}
 

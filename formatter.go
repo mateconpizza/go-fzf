@@ -29,8 +29,8 @@ var (
 )
 
 // defaultPreprocessor provides fallback formatting item for display in fzf.
-func defaultPreprocessor[T any](item *T) string {
-	return fmt.Sprintf("%+v", *item)
+func defaultPreprocessor[T any](item T) string {
+	return fmt.Sprintf("%+v", item)
 }
 
 // formatItemsPreprocessed formats each item in the slice using the preprocessor function

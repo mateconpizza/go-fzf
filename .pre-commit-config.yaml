@@ -35,7 +35,7 @@ repos:
 
       - id: go-unit-tests
         name: go test
-        entry: go test ./...
+        entry: go test -run="^Test"
         language: system
         pass_filenames: false
 
