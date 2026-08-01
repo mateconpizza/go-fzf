@@ -25,14 +25,30 @@ var items = []Item{
 
 func ExampleMenu() {
 	m := menu.New[Item](
-		menu.WithDefaults(true), // uses `$FZF_DEFAULT_OPTS_FILE` and `$FZF_DEFAULT_OPTS`
-		menu.WithPrompt("Select> "),
-		menu.WithHeader("Inventory"),
-		menu.WithBorder(menu.BorderRounded),
-		menu.WithBorderLabel("= demo ="),
-		menu.WithPreviewCmd("echo {1}"),
+		// Uses `$FZF_DEFAULT_OPTS_FILE` and `$FZF_DEFAULT_OPTS`
+		menu.WithDefaults(true),
+
+		// Layout
 		menu.WithHeight("40%"),
-		menu.WithFooter("~~ Give me apples ~~"),
+		menu.WithBorder(menu.BorderRounded),
+
+		// Header
+		menu.WithHeader("Inventory"),
+		menu.WithHeaderKeymaps(),
+		menu.WithHeaderBorder(menu.BorderBottom),
+
+		// Interaction
+		menu.WithMultiSelection(),
+		menu.WithCycle(),
+		menu.WithPrompt("Select> "),
+
+		// Preview
+		menu.WithPreviewCmd("echo {1}"),
+		menu.WithPreviewBorder(menu.BorderRounded),
+
+		// Appearance
+		menu.WithColor("prompt", menu.ColorBrightCyan, menu.AttributeBold),
+		menu.WithColor("footer", menu.ColorBrightBlue, menu.AttributeItalic),
 	)
 
 	selected, err := m.Select(items)
