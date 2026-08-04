@@ -108,15 +108,9 @@ func (a *ArgsBuilder) Validate() error {
 	return nil
 }
 
-func (a *ArgsBuilder) Build() Args { return a.list }
-
 func (a *ArgsBuilder) Parse() error {
 	_, err := shellwords.Parse(strings.Join(a.list, " "))
 	return err
-}
-
-func (a *ArgsBuilder) String() string {
-	return strings.Join(a.list, " ")
 }
 
 func (a *ArgsBuilder) Add(s ...string) *ArgsBuilder {
@@ -124,10 +118,9 @@ func (a *ArgsBuilder) Add(s ...string) *ArgsBuilder {
 	return a
 }
 
-func (a *ArgsBuilder) Custom(s ...string) *ArgsBuilder {
-	return a.Add(s...)
-}
-
+func (a *ArgsBuilder) Build() Args                           { return a.list }
+func (a *ArgsBuilder) String() string                        { return strings.Join(a.list, " ") }
+func (a *ArgsBuilder) Custom(s ...string) *ArgsBuilder       { return a.Add(s...) }
 func (a *ArgsBuilder) WithAnsi() *ArgsBuilder                { return a.Add(a.ansi) }
 func (a *ArgsBuilder) WithHeight(s string) *ArgsBuilder      { return a.Add(a.height + "=" + s) }
 func (a *ArgsBuilder) WithInfo(is InfoStyle) *ArgsBuilder    { return a.Add(a.info + "=" + string(is)) }
@@ -143,6 +136,12 @@ func (a *ArgsBuilder) WithTac() *ArgsBuilder                 { return a.Add(a.ta
 func (a *ArgsBuilder) WithCycle() *ArgsBuilder               { return a.Add(a.cycle) }
 func (a *ArgsBuilder) WithBorder(b Border) *ArgsBuilder      { return a.Add(a.border + "=" + string(b)) }
 func (a *ArgsBuilder) WithFooter(footer string) *ArgsBuilder { return a.Add(a.footer + "=" + footer) }
+func (a *ArgsBuilder) WithPreview(s string) *ArgsBuilder     { return a.Add(a.preview + "=" + s) }
+func (a *ArgsBuilder) WithHeader(s string) *ArgsBuilder      { return a.Add(a.header + "=" + s) }
+func (a *ArgsBuilder) WithHeaderBorder(b Border) *ArgsBuilder {
+	return a.Add(a.headerBorder + "=" + string(b))
+}
+
 func (a *ArgsBuilder) WithNth(idx ...string) *ArgsBuilder {
 	return a.Add(a.withNth + "=" + strings.Join(idx, ","))
 }
@@ -151,12 +150,6 @@ func (a *ArgsBuilder) WithFooterBorder(b Border) *ArgsBuilder {
 	return a.Add(a.footerBorder + "=" + string(b))
 }
 
-func (a *ArgsBuilder) WithHeader(s string) *ArgsBuilder { return a.Add(a.header + "=" + s) }
-func (a *ArgsBuilder) WithHeaderBorder(b Border) *ArgsBuilder {
-	return a.Add(a.headerBorder + "=" + string(b))
-}
-
-func (a *ArgsBuilder) WithPreview(s string) *ArgsBuilder { return a.Add(a.preview + "=" + s) }
 func (a *ArgsBuilder) WithPreviewWindow(s string) *ArgsBuilder {
 	return a.Add(a.previewWindow + "=" + s)
 }
