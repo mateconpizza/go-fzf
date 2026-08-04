@@ -71,18 +71,93 @@ const (
 )
 
 const (
-	KeyEnter     Keybind = "enter"
-	KeyCtrlSlash Keybind = "ctrl-/"
-	KeyTab       Keybind = "tab"
+	KeyEnter Keybind = "enter"
+	KeyTab   Keybind = "tab"
+	KeyBTab  Keybind = "btab"
+	KeyEsc   Keybind = "esc"
+	KeySpace Keybind = "space"
 
-	KeyCtrlA Keybind = "ctrl-a"
-	KeyCtrlE Keybind = "ctrl-e"
-	KeyCtrlK Keybind = "ctrl-k"
-	KeyCtrlL Keybind = "ctrl-l"
-	KeyCtrlO Keybind = "ctrl-o"
-	KeyCtrlR Keybind = "ctrl-r"
-	KeyCtrlW Keybind = "ctrl-w"
-	KeyCtrlY Keybind = "ctrl-y"
+	KeyUp    Keybind = "up"
+	KeyDown  Keybind = "down"
+	KeyLeft  Keybind = "left"
+	KeyRight Keybind = "right"
+	KeyHome  Keybind = "home"
+	KeyEnd   Keybind = "end"
+	KeyPgUp  Keybind = "pgup"
+	KeyPgDn  Keybind = "pgdn"
+
+	KeyCtrlA     Keybind = "ctrl-a"
+	KeyCtrlB     Keybind = "ctrl-b"
+	KeyCtrlC     Keybind = "ctrl-c"
+	KeyCtrlD     Keybind = "ctrl-d"
+	KeyCtrlE     Keybind = "ctrl-e"
+	KeyCtrlF     Keybind = "ctrl-f"
+	KeyCtrlG     Keybind = "ctrl-g"
+	KeyCtrlH     Keybind = "ctrl-h"
+	KeyCtrlI     Keybind = "ctrl-i"
+	KeyCtrlJ     Keybind = "ctrl-j"
+	KeyCtrlK     Keybind = "ctrl-k"
+	KeyCtrlL     Keybind = "ctrl-l"
+	KeyCtrlM     Keybind = "ctrl-m"
+	KeyCtrlN     Keybind = "ctrl-n"
+	KeyCtrlO     Keybind = "ctrl-o"
+	KeyCtrlP     Keybind = "ctrl-p"
+	KeyCtrlQ     Keybind = "ctrl-q"
+	KeyCtrlR     Keybind = "ctrl-r"
+	KeyCtrlS     Keybind = "ctrl-s"
+	KeyCtrlT     Keybind = "ctrl-t"
+	KeyCtrlU     Keybind = "ctrl-u"
+	KeyCtrlV     Keybind = "ctrl-v"
+	KeyCtrlW     Keybind = "ctrl-w"
+	KeyCtrlX     Keybind = "ctrl-x"
+	KeyCtrlY     Keybind = "ctrl-y"
+	KeyCtrlZ     Keybind = "ctrl-z"
+	KeyCtrlSlash Keybind = "ctrl-/"
+
+	KeyAltA Keybind = "alt-a"
+	KeyAltB Keybind = "alt-b"
+	KeyAltC Keybind = "alt-c"
+	KeyAltD Keybind = "alt-d"
+	KeyAltE Keybind = "alt-e"
+	KeyAltF Keybind = "alt-f"
+	KeyAltG Keybind = "alt-g"
+	KeyAltH Keybind = "alt-h"
+	KeyAltI Keybind = "alt-i"
+	KeyAltJ Keybind = "alt-j"
+	KeyAltK Keybind = "alt-k"
+	KeyAltL Keybind = "alt-l"
+	KeyAltM Keybind = "alt-m"
+	KeyAltN Keybind = "alt-n"
+	KeyAltO Keybind = "alt-o"
+	KeyAltP Keybind = "alt-p"
+	KeyAltQ Keybind = "alt-q"
+	KeyAltR Keybind = "alt-r"
+	KeyAltS Keybind = "alt-s"
+	KeyAltT Keybind = "alt-t"
+	KeyAltU Keybind = "alt-u"
+	KeyAltV Keybind = "alt-v"
+	KeyAltW Keybind = "alt-w"
+	KeyAltX Keybind = "alt-x"
+	KeyAltY Keybind = "alt-y"
+	KeyAltZ Keybind = "alt-z"
+
+	KeyF1  Keybind = "f1"
+	KeyF2  Keybind = "f2"
+	KeyF3  Keybind = "f3"
+	KeyF4  Keybind = "f4"
+	KeyF5  Keybind = "f5"
+	KeyF6  Keybind = "f6"
+	KeyF7  Keybind = "f7"
+	KeyF8  Keybind = "f8"
+	KeyF9  Keybind = "f9"
+	KeyF10 Keybind = "f10"
+	KeyF11 Keybind = "f11"
+	KeyF12 Keybind = "f12"
+
+	KeyShiftUp    Keybind = "shift-up"
+	KeyShiftDown  Keybind = "shift-down"
+	KeyShiftLeft  Keybind = "shift-left"
+	KeyShiftRight Keybind = "shift-right"
 )
 
 // Keymap holds the keymap configuration.
@@ -97,6 +172,10 @@ type Keymap struct {
 
 func NewKeymap() *Keymap {
 	return &Keymap{Enabled: true}
+}
+
+func (k *Keymap) String() string {
+	return fmt.Sprintf("%s:%s", k.Bind, k.Action)
 }
 
 func (k *Keymap) Hide() *Keymap {
@@ -139,6 +218,16 @@ func (k *Keymap) WithExecute(cmd string) *Keymap {
 
 func (k *Keymap) WithBuiltinAction(cmd KeybindAction) *Keymap {
 	k.Action = cmd
+	return k
+}
+
+func (k *Keymap) WithCommand(cmd string) *Keymap {
+	k.Action = KeybindAction(cmd)
+	return k
+}
+
+func (k *Keymap) WithBecome(cmd string) *Keymap {
+	k.Action = KeybindAction(fmt.Sprintf("become(%s)", cmd))
 	return k
 }
 
