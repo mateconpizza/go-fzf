@@ -1,5 +1,3 @@
-.PHONY: all clean test testcover testsum
-
 GO       := go
 GOTEST   := $(GO) test
 COVERAGE := coverage.out
@@ -34,3 +32,22 @@ testfn:
 clean:
 	@echo ">> Cleaning"
 	rm -f $(COVERAGE) $(HTML)
+
+ci:
+	@if go list -m -f '{{if .Replace}}{{if not .Replace.Version}}{{.Path}} => {{.Replace.Path}}{{end}}{{end}}' all | grep -q .; then \
+		echo "error: local replace directive found in go.mod"; \
+		go list -m -f '{{if .Replace}}{{if not .Replace.Version}}{{.Path}} => {{.Replace.Path}}{{end}}{{end}}' all; \
+		exit 1; \
+	fi
+	go mod tidy
+	git diff --exit-code
+	go vet ./...
+	go build ./...
+	@$(GOTEST) -run="^Test" -race ./...
+
+lint:
+	@echo '>> Linting code'
+	@go vet ./...
+	golangci-lint run ./...
+
+.PHONY: all test clean lint testfn testcover testsum

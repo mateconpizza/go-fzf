@@ -4,8 +4,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-
-	fzf "github.com/junegunn/fzf/src"
 )
 
 type fakeRunner struct {
@@ -13,17 +11,18 @@ type fakeRunner struct {
 	output  string
 }
 
-func (f *fakeRunner) Parse(defaults bool, settings Args) (*fzf.Options, error) {
-	return &fzf.Options{}, nil
+func (f *fakeRunner) Parse(defaults bool, settings Args) (*RunOptions, error) {
+	return &RunOptions{}, nil
 }
 
-func (f *fakeRunner) Run(opts *fzf.Options) (int, error) {
+func (f *fakeRunner) Run(opts *RunOptions) (int, error) {
 	opts.Output <- f.output
 	return f.retcode, nil
 }
 
 func TestSelectReturnsSelectedItem(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name     string
 		items    []any
@@ -83,8 +82,10 @@ func TestSelectReturnsSelectedItem(t *testing.T) {
 				output:  tt.output,
 				retcode: tt.recode,
 			}
+
 			m := New[any](WithRunner(r))
 			m.SetFormatter(defaultPreprocessor)
+
 			result, err := m.Select(s)
 
 			if tt.recode == 0 {
