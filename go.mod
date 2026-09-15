@@ -3,7 +3,7 @@ module github.com/mateconpizza/go-fzf
 go 1.23.0
 
 require (
-	github.com/junegunn/fzf v0.74.3
+	github.com/junegunn/fzf v0.74.4
 	github.com/junegunn/go-shellwords v0.0.0-20250127100254-2aa3b3277741
 )
 
