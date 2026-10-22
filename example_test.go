@@ -1,6 +1,7 @@
 package menu_test
 
 import (
+	"context"
 	"fmt"
 
 	menu "github.com/mateconpizza/go-fzf"
@@ -51,7 +52,8 @@ func ExampleMenu() {
 		menu.WithColor("footer", menu.ColorBrightBlue, menu.AttributeItalic),
 	)
 
-	selected, err := m.Select(items)
+	ctx := context.Background()
+	selected, err := m.Select(ctx, items)
 	if err != nil {
 		return
 	}

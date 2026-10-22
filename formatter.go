@@ -1,6 +1,7 @@
 package menu
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -29,20 +30,26 @@ var (
 )
 
 // defaultPreprocessor provides fallback formatting item for display in fzf.
-func defaultPreprocessor[T any](item T) string {
-	return fmt.Sprintf("%+v", item)
-}
+func defaultPreprocessor[T any](item T) string { return fmt.Sprintf("%+v", item) }
 
 // formatItemsPreprocessed formats each item in the slice using the preprocessor function
 // and returns a channel of formatted strings.
-func formatItemsPreprocessed(formattedItems []string) chan string {
+func formatItemsPreprocessed(ctx context.Context, formattedItems []string) chan string {
 	inputChan := make(chan string)
 
 	go func() {
+		defer close(inputChan)
 		for _, formatted := range formattedItems {
-			inputChan <- formatted
+			if ctx.Err() != nil {
+				return
+			}
+
+			select {
+			case inputChan <- formatted:
+			case <-ctx.Done():
+				return
+			}
 		}
-		close(inputChan)
 	}()
 
 	return inputChan

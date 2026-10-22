@@ -141,7 +141,8 @@ func TestSelectFromItems(t *testing.T) {
 				m.Formatter = func(s string) string { return s }
 			}
 
-			result, err := selectFromItems(m, tt.items)
+			ctx := t.Context()
+			result, err := selectFromItems(ctx, m, tt.items)
 
 			switch {
 			case tt.wantErrAny:

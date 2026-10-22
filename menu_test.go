@@ -1,6 +1,7 @@
 package menu
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -65,13 +66,27 @@ func TestSelect(t *testing.T) {
 			want:    nil,
 			wantErr: ErrNoMatching,
 		},
+		{
+			name:    "context_cancelled",
+			items:   []any{"foo", "bar"},
+			opts:    []Option{WithRunner(&fakeRunner{retcode: 1, output: ""})},
+			want:    nil,
+			wantErr: context.Canceled,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := Select(tt.items, tt.opts...)
+			ctx := t.Context()
+			if errors.Is(tt.wantErr, context.Canceled) {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithCancel(ctx)
+				cancel()
+			}
+
+			got, err := Select(ctx, tt.items, tt.opts...)
 
 			if tt.wantErr != nil {
 				if err == nil {
