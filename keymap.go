@@ -170,29 +170,16 @@ type Keymap struct {
 	Args    Args          `json:"args,omitempty" yaml:"args,omitempty"` // arguments added to the menu
 }
 
-func NewKeymap() *Keymap {
-	return &Keymap{Enabled: true}
-}
+func NewKeymap() *Keymap { return &Keymap{Enabled: true} }
 
-func (k *Keymap) String() string {
-	return fmt.Sprintf("%s:%s", k.Bind, k.Action)
-}
+func (k *Keymap) String() string      { return fmt.Sprintf("%s:%s", k.Bind, k.Action) }
+func (k *Keymap) IsEnabled() bool     { return k.Enabled }
+func (k *Keymap) Arguments() []string { return k.Args }
+func (k *Keymap) BindString() string  { return string(k.Bind) }
 
-func (k *Keymap) Hide() *Keymap {
-	k.Hidden = true
+func (k *Keymap) Hide(b bool) *Keymap {
+	k.Hidden = b
 	return k
-}
-
-func (k *Keymap) IsEnabled() bool {
-	return k.Enabled
-}
-
-func (k *Keymap) Arguments() []string {
-	return k.Args
-}
-
-func (k *Keymap) BindString() string {
-	return string(k.Bind)
 }
 
 func (k *Keymap) WithBind(b Keybind) *Keymap {
@@ -228,6 +215,11 @@ func (k *Keymap) WithCommand(cmd string) *Keymap {
 
 func (k *Keymap) WithBecome(cmd string) *Keymap {
 	k.Action = KeybindAction(fmt.Sprintf("become(%s)", cmd))
+	return k
+}
+
+func (k *Keymap) WithAbort() *Keymap {
+	k.Action += "+abort"
 	return k
 }
 

@@ -50,6 +50,8 @@ type ArgsBuilder struct {
 	headerLabel   string // Label to print on the header border
 	headerBorder  string // Draw border around the header section.
 	withNth       string // Transform the presentation of each line using the field index expressions
+	ghost         string // Ghost text to display when the input is empty
+	no_separator  string // Do not display horizontal separator on the info line. A synonym for --separator=''
 }
 
 func NewArgsBuilder() *ArgsBuilder {
@@ -82,6 +84,8 @@ func NewArgsBuilder() *ArgsBuilder {
 		headerLabel:   "--header-label",
 		headerBorder:  "--header-border",
 		withNth:       "--with-nth",
+		ghost:         "--ghost",
+		no_separator:  "--no-separator",
 	}
 }
 
@@ -118,26 +122,29 @@ func (a *ArgsBuilder) Add(s ...string) *ArgsBuilder {
 	return a
 }
 
-func (a *ArgsBuilder) Build() Args                           { return a.list }
-func (a *ArgsBuilder) String() string                        { return strings.Join(a.list, " ") }
-func (a *ArgsBuilder) Custom(s ...string) *ArgsBuilder       { return a.Add(s...) }
-func (a *ArgsBuilder) WithAnsi() *ArgsBuilder                { return a.Add(a.ansi) }
-func (a *ArgsBuilder) WithHeight(s string) *ArgsBuilder      { return a.Add(a.height + "=" + s) }
-func (a *ArgsBuilder) WithInfo(is InfoStyle) *ArgsBuilder    { return a.Add(a.info + "=" + string(is)) }
-func (a *ArgsBuilder) WithLayout(l Layout) *ArgsBuilder      { return a.Add(a.layout + "=" + string(l)) }
-func (a *ArgsBuilder) WithNoColor() *ArgsBuilder             { return a.Add(a.noColor) }
-func (a *ArgsBuilder) WithNoScrollbar() *ArgsBuilder         { return a.Add(a.noScrollbar) }
-func (a *ArgsBuilder) WithPointer(s string) *ArgsBuilder     { return a.Add(a.pointer + "=" + s) }
-func (a *ArgsBuilder) WithMultiSelection() *ArgsBuilder      { return a.Add(a.multi) }
-func (a *ArgsBuilder) WithHighlightLine() *ArgsBuilder       { return a.Add(a.highlightLine) }
-func (a *ArgsBuilder) WithPrompt(s string) *ArgsBuilder      { return a.Add(a.prompt + "=" + s) }
-func (a *ArgsBuilder) WithSync() *ArgsBuilder                { return a.Add(a.sync) }
-func (a *ArgsBuilder) WithTac() *ArgsBuilder                 { return a.Add(a.tac) }
-func (a *ArgsBuilder) WithCycle() *ArgsBuilder               { return a.Add(a.cycle) }
-func (a *ArgsBuilder) WithBorder(b Border) *ArgsBuilder      { return a.Add(a.border + "=" + string(b)) }
+func (a *ArgsBuilder) Build() Args                        { return a.list }
+func (a *ArgsBuilder) String() string                     { return strings.Join(a.list, " ") }
+func (a *ArgsBuilder) Custom(s ...string) *ArgsBuilder    { return a.Add(s...) }
+func (a *ArgsBuilder) WithAnsi() *ArgsBuilder             { return a.Add(a.ansi) }
+func (a *ArgsBuilder) WithHeight(s string) *ArgsBuilder   { return a.Add(a.height + "=" + s) }
+func (a *ArgsBuilder) WithInfo(is InfoStyle) *ArgsBuilder { return a.Add(a.info + "=" + string(is)) }
+
+func (a *ArgsBuilder) WithLayout(l Layout) *ArgsBuilder  { return a.Add(a.layout + "=" + string(l)) }
+func (a *ArgsBuilder) WithNoColor() *ArgsBuilder         { return a.Add(a.noColor) }
+func (a *ArgsBuilder) WithNoScrollbar() *ArgsBuilder     { return a.Add(a.noScrollbar) }
+func (a *ArgsBuilder) WithPointer(s string) *ArgsBuilder { return a.Add(a.pointer + "=" + s) }
+func (a *ArgsBuilder) WithMultiSelection() *ArgsBuilder  { return a.Add(a.multi) }
+func (a *ArgsBuilder) WithHighlightLine() *ArgsBuilder   { return a.Add(a.highlightLine) }
+func (a *ArgsBuilder) WithPrompt(s string) *ArgsBuilder  { return a.Add(a.prompt + "=" + s) }
+func (a *ArgsBuilder) WithSync() *ArgsBuilder            { return a.Add(a.sync) }
+func (a *ArgsBuilder) WithTac() *ArgsBuilder             { return a.Add(a.tac) }
+func (a *ArgsBuilder) WithCycle() *ArgsBuilder           { return a.Add(a.cycle) }
+func (a *ArgsBuilder) WithBorder(b Border) *ArgsBuilder  { return a.Add(a.border + "=" + string(b)) }
+
 func (a *ArgsBuilder) WithFooter(footer string) *ArgsBuilder { return a.Add(a.footer + "=" + footer) }
 func (a *ArgsBuilder) WithPreview(s string) *ArgsBuilder     { return a.Add(a.preview + "=" + s) }
 func (a *ArgsBuilder) WithHeader(s string) *ArgsBuilder      { return a.Add(a.header + "=" + s) }
+
 func (a *ArgsBuilder) WithHeaderBorder(b Border) *ArgsBuilder {
 	return a.Add(a.headerBorder + "=" + string(b))
 }
@@ -161,6 +168,8 @@ func (a *ArgsBuilder) WithPreviewBorder(b Border) *ArgsBuilder {
 func (a *ArgsBuilder) WithBorderLabel(s string) *ArgsBuilder {
 	return a.Add(a.border, a.borderLabel+"="+s)
 }
+func (a *ArgsBuilder) WithNoSeparator() *ArgsBuilder       { return a.Add(a.no_separator) }
+func (a *ArgsBuilder) WithGhostText(s string) *ArgsBuilder { return a.Add(a.ghost + "=" + s) }
 
 func (a *ArgsBuilder) WithColor(target string, styles ...string) *ArgsBuilder {
 	color := a.color + "=" + target

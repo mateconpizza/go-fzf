@@ -8,11 +8,11 @@ all: test
 
 test:
 	@echo ">> Running tests"
-	@$(GOTEST) -run="^Test" -v ./...
+	@$(GOTEST) -count=1 -race -run="^Test" -v ./...
 
 testcover:
 	@echo ">> Running tests with coverage"
-	@$(GOTEST) ./... -coverprofile=$(COVERAGE)
+	@$(GOTEST) -count=1 -run="^Test" ./... -coverprofile=$(COVERAGE)
 	@$(GO) tool cover -html=$(COVERAGE) -o $(HTML)
 	@xdg-open $(HTML)
 

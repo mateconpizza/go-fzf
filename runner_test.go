@@ -86,7 +86,7 @@ func TestSelectReturnsSelectedItem(t *testing.T) {
 			m := New[any](WithRunner(r))
 			m.SetFormatter(defaultPreprocessor)
 
-			result, err := m.Select(s)
+			result, err := m.Select(t.Context(), s)
 
 			if tt.recode == 0 {
 				if err != nil {

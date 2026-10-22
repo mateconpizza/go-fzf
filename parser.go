@@ -1,11 +1,15 @@
 package menu
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"regexp"
 	"strconv"
+	"sync"
 )
+
+var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 const ExitSuccess = 0
 
@@ -35,7 +39,7 @@ func handleFzfErr(retcode int) error {
 }
 
 // selectFromItems runs Fzf with the given items and returns the selected item/s.
-func selectFromItems[T any](m *Menu[T], items []T) ([]T, error) {
+func selectFromItems[T any](ctx context.Context, m *Menu[T], items []T) ([]T, error) {
 	if len(items) == 0 {
 		return nil, ErrNoItems
 	}
@@ -59,11 +63,17 @@ func selectFromItems[T any](m *Menu[T], items []T) ([]T, error) {
 		itemMap[ansiCodeRemover(formatted)] = item
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// channels
-	inputChan := formatItemsPreprocessed(formattedItems)
+	inputChan := formatItemsPreprocessed(ctx, formattedItems)
 	outputChan := make(chan string)
-	resultChan := make(chan []T)
+	resultChan := make(chan []T, 1)
 	go processOutputPreprocessed(itemMap, outputChan, resultChan)
+
+	closeOutput := sync.OnceFunc(func() { close(outputChan) })
+	defer closeOutput() // covers Parse errors and the non-success retcode
 
 	// Build Fzf.Options
 	options, err := m.runner.Parse(m.withDefaults(), m.argsBuilder.Build())
@@ -85,12 +95,11 @@ func selectFromItems[T any](m *Menu[T], items []T) ([]T, error) {
 		return nil, err
 	}
 
-	close(outputChan)
-
+	closeOutput()
 	result := <-resultChan
 
 	if err != nil {
-		return nil, fmt.Errorf("%w", err)
+		return nil, err
 	}
 
 	return result, nil
@@ -98,6 +107,5 @@ func selectFromItems[T any](m *Menu[T], items []T) ([]T, error) {
 
 // ansiCodeRemover removes ANSI codes from a given string.
 func ansiCodeRemover(s string) string {
-	re := regexp.MustCompile(`\x1b\[[0-9;]*m`)
-	return re.ReplaceAllString(s, "")
+	return ansiEscapeRe.ReplaceAllString(s, "")
 }
