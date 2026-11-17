@@ -236,35 +236,82 @@ func (k *Keymap) WithArgs(fn func(b *ArgsBuilder) *ArgsBuilder) *Keymap {
 
 type KeymapManager struct {
 	keymaps map[KeybindAction]*Keymap // keymaps action:keymap
+	logger  *slog.Logger
 }
 
 func NewKeymapManager() *KeymapManager {
 	return &KeymapManager{
 		keymaps: make(map[KeybindAction]*Keymap),
+		logger:  slog.New(slog.DiscardHandler).With("cmp", "keymap-manager"),
 	}
+}
+
+// WithLogger sets the logger used by the keymap manager.
+func (km *KeymapManager) WithLogger(l *slog.Logger) *KeymapManager {
+	if l != nil {
+		km.logger = l.With("cmp", "keymap-manager")
+	}
+	return km
 }
 
 func (km *KeymapManager) NewKeymap() *Keymap {
 	return NewKeymap()
 }
 
+// Register adds or replaces keymaps.
 func (km *KeymapManager) Register(keys ...*Keymap) {
-	for i := range keys {
-		k := keys[i]
+	log := km.logger.With("fn", "register")
+
+	for _, k := range keys {
+		if k == nil {
+			log.Warn("skipping nil keymap")
+			continue
+		}
+
+		if existing := km.keymaps[k.Action]; existing != nil {
+			log.Debug("replacing keymap",
+				"action", k.Action,
+				"old_bind", existing.Bind,
+				"new_bind", k.Bind,
+			)
+		}
+
 		km.keymaps[k.Action] = k
-		slog.Debug("keybind register", "bind", k.Bind, "action", k.Action)
+
+		log.Debug("keymap registered",
+			"bind", k.Bind,
+			"action", k.Action,
+		)
 	}
 }
 
-// Remove removes bind from keymaps map.
+// Remove removes a keymap from the manager.
 func (km *KeymapManager) Remove(k *Keymap) {
-	slog.Debug("keybind remove", "bind", k.Bind, "action", k.Action)
+	log := km.logger.With("fn", "remove")
+
+	if k == nil {
+		log.Warn("cannot remove nil keymap")
+		return
+	}
+
+	if _, ok := km.keymaps[k.Action]; !ok {
+		log.Debug("keymap not registered",
+			"bind", k.Bind,
+			"action", k.Action,
+		)
+		return
+	}
+
 	delete(km.keymaps, k.Action)
+
+	log.Debug("keymap removed",
+		"bind", k.Bind,
+		"action", k.Action,
+	)
 }
 
-func (km *KeymapManager) Len() int {
-	return len(km.keymaps)
-}
+// Len returns the number of registered keymaps.
+func (km *KeymapManager) Len() int { return len(km.keymaps) }
 
 // List returns a sorted keymap slice.
 func (km *KeymapManager) List() []*Keymap {
@@ -287,11 +334,16 @@ func (km *KeymapManager) List() []*Keymap {
 // Find returns the first Keymap that matches the given action or bind.
 // It returns nil if no keymap is found.
 func (km *KeymapManager) Find(bind *Keymap) *Keymap {
+	if bind == nil {
+		return nil
+	}
+
 	for _, k := range km.keymaps {
 		if strings.EqualFold(string(k.Action), string(bind.Action)) ||
 			strings.EqualFold(string(k.Bind), string(bind.Bind)) {
 			return k
 		}
 	}
+
 	return nil
 }
