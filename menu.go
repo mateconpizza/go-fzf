@@ -145,10 +145,14 @@ func New[T any](opts ...Option) *Menu[T] {
 		headerSeparatorFmt: defaultSeparatorFormatter,
 		logger:             slog.New(slog.DiscardHandler),
 	}
+
 	for _, fn := range opts {
 		fn(&o)
 	}
-	o.logger = o.logger.With("cmp", "fzf")
+
+	baseLogger := o.logger
+	o.logger = baseLogger.With("cmp", "fzf")
+	o.keymaps = o.keymaps.WithLogger(baseLogger)
 
 	return &Menu[T]{
 		Options: o,

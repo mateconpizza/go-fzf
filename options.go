@@ -140,6 +140,7 @@ func WithLogger(l *slog.Logger) Option {
 	return func(o *Options) {
 		if l != nil {
 			o.logger = l
+			o.keymaps = o.keymaps.WithLogger(l)
 		}
 	}
 }
