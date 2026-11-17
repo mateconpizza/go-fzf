@@ -3,9 +3,7 @@ package menu
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"regexp"
-	"strconv"
 	"sync"
 )
 
@@ -40,67 +38,94 @@ func handleFzfErr(retcode int) error {
 
 // selectFromItems runs Fzf with the given items and returns the selected item/s.
 func selectFromItems[T any](ctx context.Context, m *Menu[T], items []T) ([]T, error) {
+	log := m.log().With("fn", "select-from-items")
+
 	if len(items) == 0 {
+		log.Debug("no items to select")
 		return nil, ErrNoItems
 	}
 
+	log.Debug("preparing menu items", "count", len(items))
+
 	if m.Formatter == nil {
-		slog.Debug("preprocessor is nil, defaulting to 'defaultPreprocessor'")
+		log.Debug("formatter is nil, using default preprocessor")
 		m.Formatter = defaultPreprocessor
 	}
 
 	for i, arg := range m.argsBuilder.list {
-		slog.Debug("menu args", strconv.Itoa(i), arg)
+		log.Debug("menu argument", "index", i, "value", arg)
 	}
 
-	// Pre-process all items once for better performance
+	// Pre-process all items once for better performance.
 	formattedItems := make([]string, len(items))
 	itemMap := make(map[string]T, len(items))
+
 	for i, item := range items {
-		ti := item
-		formatted := m.Formatter(ti)
+		formatted := m.Formatter(item)
 		formattedItems[i] = formatted
 		itemMap[ansiCodeRemover(formatted)] = item
 	}
 
+	log.Debug("menu items formatted", "count", len(formattedItems))
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// channels
+	// Channels.
 	inputChan := formatItemsPreprocessed(ctx, formattedItems)
 	outputChan := make(chan string)
 	resultChan := make(chan []T, 1)
+
 	go processOutputPreprocessed(itemMap, outputChan, resultChan)
 
-	closeOutput := sync.OnceFunc(func() { close(outputChan) })
-	defer closeOutput() // covers Parse errors and the non-success retcode
+	closeOutput := sync.OnceFunc(func() {
+		close(outputChan)
+	})
+	defer closeOutput()
 
-	// Build Fzf.Options
+	// Build Fzf.Options.
 	options, err := m.runner.Parse(m.withDefaults(), m.argsBuilder.Build())
 	if err != nil {
+		log.Error("failed to parse fzf options", "error", err)
 		return nil, fmt.Errorf("fzf: %w", err)
 	}
 
-	// Set up input and output channels
 	options.Input = inputChan
 	options.Output = outputChan
 
-	// Run Fzf
+	log.Debug("running fzf", "items", len(items))
+
 	retcode, err := m.runner.Run(options)
 	if retcode != ExitSuccess {
-		// regardless of what kind of error, always call `callInterruptFn`
+		if err != nil {
+			log.Debug("fzf runner returned error",
+				"exit_code", retcode,
+				"error", err,
+			)
+		}
+
 		err = handleFzfErr(retcode)
+
+		log.Debug("fzf exited without successful selection",
+			"exit_code", retcode,
+			"error", err,
+		)
+
 		m.callInterruptFn(err)
 
 		return nil, err
 	}
 
 	closeOutput()
+
 	result := <-resultChan
 
 	if err != nil {
+		log.Error("fzf execution failed", "error", err)
 		return nil, err
 	}
+
+	log.Debug("fzf selection completed", "selected", len(result))
 
 	return result, nil
 }

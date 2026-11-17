@@ -1,5 +1,7 @@
 package menu
 
+import "log/slog"
+
 func (m *Menu[T]) withDefaults() bool { return m.useDefaults }
 
 // WithDefaults uses $FZF_DEFAULT_OPTS_FILE and $FZF_DEFAULT_OPTS.
@@ -132,4 +134,12 @@ func WithHeaderKeymapFmt(fn KeymapFormatter) Option {
 func WithHeaderSeparator(sep string) Option { return func(o *Options) { o.headerSeparator = sep } }
 func WithHeaderSeparatorFmt(fn SeparatorFormatter) Option {
 	return func(o *Options) { o.headerSeparatorFmt = fn }
+}
+
+func WithLogger(l *slog.Logger) Option {
+	return func(o *Options) {
+		if l != nil {
+			o.logger = l
+		}
+	}
 }

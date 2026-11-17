@@ -65,6 +65,8 @@ type Options struct {
 	// headerSeparatorFmt formats the separator used between
 	// keymap entries in the menu header.
 	headerSeparatorFmt SeparatorFormatter
+
+	logger *slog.Logger
 }
 
 type FmtFunc[T any] func(item T) string
@@ -108,21 +110,29 @@ func (m *Menu[T]) Select(ctx context.Context, items []T) ([]T, error) {
 	return selected, nil
 }
 
-// callInterruptFn safely executes the interrupt callback if set.
-func (m *Menu[T]) callInterruptFn(err error) {
-	if m.interruptFn != nil {
-		slog.Debug("calling interruptFn with err", "err", err)
-		m.interruptFn(err)
-	}
-
-	slog.Debug("interruptFn is nil")
-}
-
 // SetInterruptFn sets the interrupt function for the menu.
 func (m *Menu[T]) SetInterruptFn(fn func(error)) { m.interruptFn = fn }
 
 // SetFormatter sets a function to format items for display in fzf.
 func (m *Menu[T]) SetFormatter(preprocessor FmtFunc[T]) { m.Formatter = preprocessor }
+
+// callInterruptFn safely executes the interrupt callback if set.
+func (m *Menu[T]) callInterruptFn(err error) {
+	log := m.log().With("fn", "call-interrupt")
+	if m.interruptFn != nil {
+		log.Debug("calling interruptFn with err", "err", err)
+		m.interruptFn(err)
+	}
+
+	log.Debug("interruptFn is nil")
+}
+
+func (m *Menu[T]) log() *slog.Logger {
+	if m.logger == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return m.logger
+}
 
 // New returns a new Menu.
 func New[T any](opts ...Option) *Menu[T] {
@@ -133,11 +143,12 @@ func New[T any](opts ...Option) *Menu[T] {
 		argsBuilder:        NewArgsBuilder(),
 		headerKeymapFmt:    defaultKeymapFormatter,
 		headerSeparatorFmt: defaultSeparatorFormatter,
+		logger:             slog.New(slog.DiscardHandler),
 	}
-
 	for _, fn := range opts {
 		fn(&o)
 	}
+	o.logger = o.logger.With("cmp", "fzf")
 
 	return &Menu[T]{
 		Options: o,
